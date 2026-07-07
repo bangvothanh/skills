@@ -1,6 +1,6 @@
 ---
 name: ticket-implementer
-description: "Read, plan, and implement a task or bug from a given ticket ID (e.g. TAD-xxx). The entire workflow (fetching details, exploring/planning, implementing, and final linting/validation) is orchestrated by delegating to subagents managed by the multi-agent-task-orchestrator skill."
+description: "Read, plan, and implement tasks or bugs from one or more ticket IDs (e.g. TAD-xxx, TAD-yyy). The workflow processes multiple tickets concurrently, utilizing git worktrees for isolated environments, with tasks orchestrated by delegating to subagents managed by the multi-agent-task-orchestrator skill."
 ---
 
 # Ticket Implementer
@@ -8,25 +8,24 @@ description: "Read, plan, and implement a task or bug from a given ticket ID (e.
 Use this skill to autonomously fetch ticket details, plan the implementation, and execute the task or bug fix within the repository.
 
 ## When to Use
-Use this skill when you are given a ticket ID (e.g. `TAD-xxx`) and need to completely implement the requirement (task, improvement, or bug fix).
+Use this skill when you are given one or more ticket IDs (e.g. `TAD-xxx`, `TAD-yyy`) and need to completely implement the requirements (tasks, improvements, or bug fixes) concurrently.
 
 ## Limitations
-- This skill requires the project slug (e.g. `TAD`) and ticket ID to be provided.
+- This skill requires the project slug (e.g. `TAD`) and ticket ID(s) to be provided.
 - Ensure you have the necessary subagents available for codebase exploration.
 - Requires other specialized skills (like `plane ticket reader`, `bug-hunter`) to delegate parts of the workflow.
 
 ## Alternative Workflow: /teamwork-preview
 If the `/teamwork-preview` slash command is available and the user wishes to use a fully autonomous multi-agent system, you should follow the `/teamwork-preview` documentation instead of the steps below. This involves its two-phase artifact-based workflow (crafting `prompt_draft.md` through Steps 1-9 and then delegating to the `teamwork_preview` subagent).
 
-[See Documentation: Multi-Agent Teamwork Ultra Plan Only](https://antigravity.google/docs/subagents#multi-agent-teamwork-ultra-plan-only)
 
 ## Inputs
-- Ticket ID (e.g., `TAD-xxx`)
-- Project slug (e.g., `TAD` can be extracted from the ticket ID)
+- Ticket ID(s) (e.g., `TAD-xxx`, `TAD-yyy`)
+- Project slug (e.g., `TAD` can be extracted from the ticket IDs)
 
 ## Workflow Steps
 
-**Note: EVERY task in this workflow MUST be delegated to subagents and managed centrally using the `multi-agent-task-orchestrator` skill.**
+**Note: If multiple ticket IDs are provided, orchestrate the following workflow steps concurrently for each ticket to increase parallel workload throughput. EVERY task in this workflow MUST be delegated to subagents and managed centrally using the `multi-agent-task-orchestrator` skill.**
 
 ### Step 1: Fetch Ticket Details
 1. Use the `multi-agent-task-orchestrator` skill to delegate the ticket setup phase to a subagent.
@@ -51,12 +50,14 @@ If the `/teamwork-preview` slash command is available and the user wishes to use
 
 ### Step 3: Implement Task
 1. Check the ticket item type from `req.txt`.
-2. Before implementing, instruct a subagent to create new working branches in both the **backend** and **frontend** repositories based on the latest `origin/develop`:
+2. Before implementing, instruct a subagent to set up isolated environments using **git worktree** in both the **backend** and **frontend** repositories based on the latest `origin/develop`:
    - If the type is a bug, use the branch name `fix/{ticket-id}`.
    - Otherwise, use the branch name `feat/{ticket-id}`.
-   - **Note**: If creating the new branch fails because the branch already exists, instruct the subagent to stash any current changes, switch to the existing branch, and rebase it with the latest `origin/develop`.
+   - Create a new git worktree for the task (e.g., `git worktree add ../{repo-name}-{ticket-id} -b {branch-name} origin/develop`).
+   - Perform all subsequent implementation work strictly within these isolated worktree directories to prevent conflicts when running multiple tasks simultaneously.
+   - **Note**: If the worktree or branch already exists, instruct the subagent to navigate to it, stash any current changes, switch to the existing branch, and rebase it with the latest `origin/develop`.
 3. Determine if the plan requires changes in the backend, frontend, or both.
-4. Use the `multi-agent-task-orchestrator` skill to delegate and manage the implementation work defined in `tasks/[ticket-id]/task_plan.md` on these new branches.
+4. Use the `multi-agent-task-orchestrator` skill to delegate and manage the implementation work defined in `tasks/[ticket-id]/task_plan.md` within the newly created worktree directories.
    - **CRITICAL FOR SPEED**: If the plan involves both backend and frontend changes, instruct the orchestrator to launch **two separate subagents concurrently** (one for the backend and one for the frontend) so they can implement their respective parts in parallel.
 5. For bug fixes, orchestrate subagents equipped with the `/bug-hunter` skill. For features or improvements, orchestrate subagents equipped with the `full-stack-orchestration-full-stack-feature` skill.
 6. Ensure the orchestrator continuously monitors the parallel subagents' progress, handling any cross-dependencies, and has them update `tasks/[ticket-id]/progress.md` and `task_plan.md` until all conditions are matched and the task is fully complete.

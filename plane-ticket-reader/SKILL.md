@@ -66,8 +66,12 @@ plane issues list -p PROJECT_ID
 # Filter tickets
 plane issues list -p PROJECT_ID --priority high --assignee USER_ID
 
-# Get full details of a specific ticket
+# Get full details of a specific ticket by UUID
 plane issues get -p PROJECT_ID ISSUE_ID
+
+# Fast retrieve a ticket by its sequence ID (e.g. TAD-1831) without needing a project ID
+plane issues fast-get TAD-1831
+plane issues fast-get TAD-1831 --expand   # Include reactions, attachments, and links
 
 # Search for tickets across the workspace
 plane issues search "login bug"

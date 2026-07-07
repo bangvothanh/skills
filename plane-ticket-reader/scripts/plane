@@ -151,7 +151,7 @@ def _validate_id(value: str, name: str = "ID") -> str:
     return value
 
 
-def api(method: str, endpoint: str, data: Optional[Dict[str, Any]] = None) -> Optional[Any]:
+def api(method: str, endpoint: str, data: Optional[Dict[str, Any]] = None, api_version: str = "v1") -> Optional[Any]:
     """
     Make an authenticated request to the Plane API.
 
@@ -159,13 +159,17 @@ def api(method: str, endpoint: str, data: Optional[Dict[str, Any]] = None) -> Op
         method:   HTTP method (GET, POST, PATCH, DELETE).
         endpoint: API path starting with / (e.g., /users/me/).
         data:     Optional JSON body for POST/PATCH.
+        api_version: API version string (default 'v1'). Set to empty string for internal endpoints.
 
     Returns:
         Parsed JSON response, or None for 204 No Content.
     """
     _check_env()
 
-    url = f"{BASE_URL.rstrip('/')}/api/v1{endpoint}"
+    if api_version:
+        url = f"{BASE_URL.rstrip('/')}/api/{api_version}{endpoint}"
+    else:
+        url = f"{BASE_URL.rstrip('/')}/api{endpoint}"
     
     # Defense-in-depth: ensure we only make HTTP(S) requests (Semgrep audit)
     if not url.startswith(("http://", "https://")):
@@ -438,6 +442,37 @@ def cmd_issues_get(args):
     format_output(data, args.format)
 
 
+def cmd_issues_fast_get(args):
+    """Fast retrieve work item by sequence ID (e.g. TAD-1831)."""
+    # Use v1 search to find the ticket UUID, then fetch details
+    project_id = "83b65a3b-fa4d-4ec7-b6f1-361a59b5bbbc"
+    endpoint = f"/workspaces/{WORKSPACE}/projects/{project_id}/work-items/?per_page=100"
+    while endpoint:
+        data = api("GET", endpoint)
+        results = data.get("results", []) if isinstance(data, dict) else data
+        for r in results:
+            seq = f"{r.get('project_detail', {}).get('identifier', 'TAD')}-{r.get('sequence_id')}"
+            if args.ticket_id in seq:
+                issue_id = r.get("id")
+                detail_url = f"/workspaces/{WORKSPACE}/projects/{project_id}/work-items/{issue_id}/"
+                if getattr(args, "expand", False):
+                    detail_url += "?expand=issue_reactions,issue_attachments,issue_link,parent"
+                detail_data = api("GET", detail_url)
+                if args.format == "json":
+                    format_output(detail_data, args.format)
+                else:
+                    # Print everything as JSON just to make sure we get all details
+                    print(json.dumps(detail_data, indent=2))
+                return
+        
+        next_url = data.get("next") if isinstance(data, dict) else None
+        if next_url:
+            endpoint = next_url.split("/api/v1")[-1]
+        else:
+            break
+    print(f"Not found: {args.ticket_id}")
+
+
 def cmd_issues_create(args):
     """Create a new work item in a project."""
     _validate_id(args.project, "project ID")
@@ -504,11 +539,24 @@ def cmd_issues_delete(args):
 
 
 def cmd_issues_search(args):
-    """Search work items across the entire workspace."""
-    params = urlencode({"search": args.query, "type": "work_item"})
-    endpoint = f"/workspaces/{WORKSPACE}/search/?{params}"
-    data = api("GET", endpoint)
-    format_output(data, args.format)
+    """Search work items across the entire workspace by iterating."""
+    endpoint = f"/workspaces/{WORKSPACE}/projects/83b65a3b-fa4d-4ec7-b6f1-361a59b5bbbc/work-items/?per_page=100"
+    while endpoint:
+        data = api("GET", endpoint)
+        results = data.get("results", [])
+        for r in results:
+            seq = f"{r.get('project_detail', {}).get('identifier', 'TAD')}-{r.get('sequence_id')}"
+            if args.query in seq:
+                format_output(r, args.format)
+                return
+        
+        next_url = data.get("next")
+        if next_url:
+            endpoint = next_url.split("/api/v1")[-1]
+        else:
+            endpoint = None
+            
+    print(f"Not found: {args.query}")
 
 
 # ===========================================================================
@@ -730,6 +778,11 @@ def main():
     i_get.add_argument("--project", "-p", required=True, help="Project ID")
     i_get.add_argument("issue", help="Work item ID (UUID)")
     i_get.set_defaults(func=cmd_issues_get)
+
+    i_fast = iss_sub.add_parser("fast-get", help="Fast retrieve work item by sequence ID (e.g. TAD-1831)")
+    i_fast.add_argument("ticket_id", help="Sequence ID (e.g. TAD-1831)")
+    i_fast.add_argument("--expand", action="store_true", help="Expand details (reactions, attachments, links, parent)")
+    i_fast.set_defaults(func=cmd_issues_fast_get)
 
     i_create = iss_sub.add_parser("create", help="Create a new work item")
     i_create.add_argument("--project", "-p", required=True, help="Project ID")
