@@ -29,6 +29,7 @@ Use this skill to automate committing changes after implementing or fixing bugs 
         - Check the current branch to ensure it's not `main` or `master`.
         - Determine the appropriate commit type (`feat`, `fix`, `chore`, etc.).
         - Write a commit message following the conventional commit structure.
+        - **Include the ticket link at the top of the commit message body (e.g., `https://pm.hilab.cloud/hilab/browse/<ticket_id>/`).**
         - Reference the ticket ID in the footer (e.g., `Fixes GH-<ticket_id>` or `Fixes #<ticket_id>`).
         - Run `git add` and `git commit`.
 
