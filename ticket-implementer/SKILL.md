@@ -50,10 +50,11 @@ If the `/teamwork-preview` slash command is available and the user wishes to use
 
 ### Step 3: Implement Task
 1. Check the ticket item type from `req.txt`.
-2. Before implementing, instruct a subagent to set up isolated environments using **git worktree** in both the **backend** and **frontend** repositories based on the latest `origin/develop`:
+2. Before implementing, instruct a subagent to **MANDATORILY** set up isolated environments using **git worktree** in both the **backend** and **frontend** directories based on the latest `origin/develop`:
    - If the type is a bug, use the branch name `fix/{ticket-id}`.
    - Otherwise, use the branch name `feat/{ticket-id}`.
-   - Create a new git worktree for the task (e.g., `git worktree add ../{repo-name}-{ticket-id} -b {branch-name} origin/develop`).
+   - For backend changes, create a worktree in `backend/.worktrees/`: `cd backend && git worktree add .worktrees/{ticket-id} -b {branch-name} origin/develop`
+   - For frontend changes, create a worktree in `frontend/.worktrees/`: `cd frontend && git worktree add .worktrees/{ticket-id} -b {branch-name} origin/develop`
    - Perform all subsequent implementation work strictly within these isolated worktree directories to prevent conflicts when running multiple tasks simultaneously.
    - **Note**: If the worktree or branch already exists, instruct the subagent to navigate to it, stash any current changes, switch to the existing branch, and rebase it with the latest `origin/develop`.
 3. Determine if the plan requires changes in the backend, frontend, or both.
