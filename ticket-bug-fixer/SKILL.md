@@ -29,6 +29,7 @@ Use this skill when tackling bugs, defects, or issues that arise *after* a task 
 1. Formulate a fix that resolves the issue.
 2. Ensure the fix does not break or alter the expected behavior outlined in the original task requirements.
 3. Apply the code changes.
+4. **CRITICAL**: Do NOT commit any code changes (e.g., using `git commit`) unless the user explicitly requests it. Provide the fix in the working directory and wait for user validation. If the user requests to commit, invoke the `ticket-committer` skill to handle the commit process.
 
 ### 5. Verification
 1. Verify the changes locally if possible, or explain the fix and ask the user to verify.
